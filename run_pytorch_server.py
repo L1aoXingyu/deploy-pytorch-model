@@ -9,15 +9,17 @@ import json
 
 import flask
 import torch
+import torch
 import torch.nn.functional as F
 from PIL import Image
-from torchvision import transforms as tfs
+from torch import nn
+from torchvision import transforms as T
 from torchvision.models import resnet50
 
 # Initialize our Flask application and the PyTorch model.
 app = flask.Flask(__name__)
 model = None
-use_gpu = False
+use_gpu = True
 
 with open('imagenet_class.txt', 'r') as f:
     idx2label = eval(f.read())
@@ -37,27 +39,27 @@ def load_model():
 def prepare_image(image, target_size):
     """Do image preprocessing before prediction on any data.
 
-    :param image: Original image
-    :param target_size: Target image size
+    :param image:       original image
+    :param target_size: target image size
     :return:
-        preprocessed image
+                        preprocessed image
     """
 
     if image.mode != 'RGB':
         image = image.convert("RGB")
 
     # Resize the input image nad preprocess it.
-    image = tfs.Resize(target_size)(image)
-    image = tfs.ToTensor()(image)
+    image = T.Resize(target_size)(image)
+    image = T.ToTensor()(image)
 
     # Convert to Torch.Tensor and normalize.
-    image = tfs.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(image)
+    image = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(image)
 
     # Add batch_size axis.
     image = image[None]
     if use_gpu:
         image = image.cuda()
-    return torch.autograd.Variable(image)
+    return torch.autograd.Variable(image, volatile=True)
 
 
 @app.route("/predict", methods=["POST"])
@@ -72,7 +74,7 @@ def predict():
             image = flask.request.files["image"].read()
             image = Image.open(io.BytesIO(image))
 
-            # Preprocess the image nad prepare it for classification.
+            # Preprocess the image and prepare it for classification.
             image = prepare_image(image, target_size=(224, 224))
 
             # Classify the input image and then initialize the list of predictions to return to the client.
